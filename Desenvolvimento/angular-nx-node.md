@@ -1,4 +1,4 @@
-# Utilitários de Desenvolvimento (Angular, Nx, Node, .NET)
+# Ambiente: Angular, Nx, Node e .NET
 
 ## Angular & Nx Workspace
 

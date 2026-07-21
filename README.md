@@ -12,6 +12,9 @@ A documentação está organizada nas seguintes categorias:
 
 ### 🛠️ [Desenvolvimento](./Desenvolvimento/)
 - [Ambiente: Angular, Nx, Node e .NET](./Desenvolvimento/angular-nx-node.md)
+- [Build de Dev Container](./Desenvolvimento/devcontainer-build.md)
+- [Conventional Comments (EN): PR Comments e Git Commits](./Desenvolvimento/conventional-comments.md)
+- [Conventional Comments (PT-BR): Comentários de PR e Commits Git](./Desenvolvimento/conventional-comments-ptBr.md)
 
 ### 🐙 [Git](./Git/)
 - [Comandos Básicos e Fluxo de Trabalho](./Git/comandos-basicos.md)

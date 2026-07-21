@@ -7,6 +7,9 @@ Este espaço é dedicado a documentar guias práticos, configurações e dicas r
 
 A documentação está organizada nas seguintes categorias:
 
+### 🏭 [Buhler](./Buhler/)
+- [Build Fraenkel](./Buhler/Build-Fraenkel.md)
+
 ### 🛠️ [Desenvolvimento](./Desenvolvimento/)
 - [Ambiente: Angular, Nx, Node e .NET](./Desenvolvimento/angular-nx-node.md)
 

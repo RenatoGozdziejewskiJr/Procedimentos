@@ -1,6 +1,6 @@
 # Build Fraenkel
-## Build Core
 
+## Build Core
 - Run python update-core-interfaces.py in Build Tools\Releases\Windows XP, win32 (1) (in a cmd window with Administrator privileges):
 
 ```cmd
@@ -18,7 +18,6 @@ py -2.7 update-component-interfaces.py millikan-components.txt
 - Build Core solution in the visual studio 2013 for both Release first and then Debug
 
 ## Build Components
-
 - Run python local-core-release.py in Build Tools\Releases\Windows XP, win32 (1)(in a cmd window with Administrator privileges)
 
 ```cmd
@@ -117,6 +116,7 @@ Para facilitar a atualizacao apos a compilacao de um projeto especifico, pode-se
 ```cmd
 cd $(OutputPath)
 copy *.pdb "$(SolutionDir)..\Sortex\sc_app_d" /Y
+copy *.dll "$(SolutionDir)..\Sortex\sc_app_d" /Y
 
 ```
 ou

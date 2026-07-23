@@ -28,6 +28,7 @@ A documentação está organizada nas seguintes categorias:
 
 ### 🔐 [SSH](./SSH/)
 - [Geração e Configuração de Chaves SSH](./SSH/geracao-chaves.md)
+- [Instalação Manual do Servidor SSH no Windows](./SSH/instalacao-ssh-server-manual-windows.md)
 - [Remoção de Senha na Autenticação SSH](./SSH/remocao-senha.md)
 
 ### 🪟 [Windows](./Windows/)

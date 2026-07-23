@@ -50,50 +50,68 @@ Start-Service sshd
 ---
 
 ## Passo 5: Cópia Manual de Chaves Públicas (Acesso Sem Senha)
-O comando tradicional `ssh-copy-id` do Linux falha ao interagir com o Windows. A configuração deve ser feita inserindo a chave pública dentro do arquivo de chaves autorizadas do Host. 
+O comando tradicional `ssh-copy-id` do Linux falha ao interagir com o Windows devido à falta do interpretador bash nativo. A configuração deve ser feita inserindo o texto da chave pública diretamente no Host de destino.
 
-Se você tiver mais de uma chave pública (de computadores diferentes), basta adicioná-las uma abaixo da outra, dedicando **uma linha inteira para cada chave**.
+### Formato do Arquivo authorized_keys
+O arquivo `authorized_keys` deve ser um arquivo de texto simples, **sem nenhuma extensão** (ex: `.txt`). Cada chave pública adicionada deve ocupar **exatamente uma linha inteira**. Se você tiver chaves de múltiplos computadores, faça o *append* inserindo uma abaixo da outra.
 
-### Cenário A: O seu Usuário no Host é um Usuário Comum
-O arquivo de destino deve ser um arquivo de texto simples (sem extensão) localizado no perfil do usuário. No PowerShell do Host, execute:
+**Exemplo interno do arquivo:**
+```text
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK... usuario@computador1
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQ... usuario@computador2
+```
+
+### Script de Criação e Permissões (Usuário Comum)
+No PowerShell do Host, execute os comandos abaixo para estruturar a pasta, injetar a chave e ajustar a codificação. O OpenSSH **rejeita** arquivos que não estejam no formato UTF-8 puro (sem BOM):
 
 ```powershell
 # 1. Garante a existência do diretório .ssh no perfil do usuário
 New-Item -ItemType Directory -Force -Path "C:\Users\u46099\.ssh"
 
-# 2. Cria ou adiciona a primeira chave pública ao arquivo authorized_keys
+# 2. Cria o arquivo authorized_keys com o conteúdo da sua chave pública
 # Substitua 'sua-chave-publica-aqui' pelo conteúdo real do seu arquivo .pub
 Set-Content -Path "C:\Users\u46099\.ssh\authorized_keys" -Value "sua-chave-publica-aqui"
 
 # NOTA: Para adicionar chaves secundárias futuramente sem apagar as anteriores, use:
 # Add-Content -Path "C:\Users\u46099\.ssh\authorized_keys" -Value "nova-chave-publica-aqui"
 
-# 3. Ajusta estritamente as permissões do arquivo (Obrigatório por segurança)
-# Remove a herança e concede acesso apenas ao Sistema e ao próprio Usuário comum
+# 3. Força a codificação correta para UTF-8 sem BOM (Obrigatório para o OpenSSH aceitar)
+[System.IO.File]::WriteAllLines("C:\Users\u46099\.ssh\authorized_keys", [System.IO.File]::ReadAllLines("C:\Users\u46099\.ssh\authorized_keys"))
+
+# 4. Ajusta estritamente as permissões do arquivo (Obrigatório por segurança)
+# Remove a herança e concede acesso completo apenas ao Sistema e ao próprio Usuário
 icacls "C:\Users\u46099\.ssh\authorized_keys" /inheritance:r /grant "NT AUTHORITY\SYSTEM:F" /grant "u46099:F"
 ```
 
-### Cenário B: O seu Usuário no Host é um Administrador
-Por padrão de segurança do OpenSSH no Windows, as chaves de contas do grupo de Administradores não ficam na pasta do usuário, mas sim em uma pasta central do sistema. No PowerShell do Host:
+---
 
-```powershell
-# 1. Cria ou adiciona a primeira chave pública ao arquivo global de administradores
-Set-Content -Path "C:\ProgramData\ssh\administrators_authorized_keys" -Value "sua-chave-publica-aqui"
+## Passo 6: Ajustes Críticos no arquivo `sshd_config`
+Por padrão, o Windows redireciona contas que possuem quaisquer privilégios administrativos para um arquivo global e realiza checagens rígidas de permissões na pasta pai, o que frequentemente bloqueia a autenticação por chaves. 
 
-# 2. Ajusta as permissões do arquivo (Obrigatório por segurança)
-# Remove a herança e concede acesso apenas ao Sistema e ao grupo de Administradores
-icacls "C:\ProgramData\ssh\administrators_authorized_keys" /inheritance:r /grant "NT AUTHORITY\SYSTEM:F" /grant "BUILTIN\Administrators:F"
+Para forçar o uso da pasta do usuário e evitar rejeições de segurança, altere o arquivo de configuração:
+
+1. Abra o **Bloco de Notas como Administrador**.
+2. Abra o arquivo localizado em: `C:\ProgramData\ssh\sshd_config` *(Nota: mude o filtro do Bloco de Notas para "Todos os arquivos" para conseguir visualizá-lo)*.
+3. Modifique ou adicione as diretivas abaixo:
+
+```text
+# 1. Desative o modo estrito de validação de diretórios se houver bloqueio de herança corporativa
+StrictModes no
+
+# 2. Vá até o final do arquivo e COMENTE as duas linhas abaixo adicionando '#' no início.
+# Isso impede que o Windows ignore sua pasta de usuário e exija chaves de administrador globais.
+#Match Group administrators
+#    AuthorizedKeysFile __PROGRAMDATA__/ssh/administrators_authorized_keys
 ```
 
-### Aplicando as Novas Chaves
-Toda vez que o arquivo de chaves for modificado ou criado, reinicie o serviço SSH no Host para carregar as novas credenciais:
+4. Salve o arquivo e **reinicie o serviço SSH** no PowerShell para aplicar as alterações:
 ```powershell
 Restart-Service sshd
 ```
 
 ---
 
-## Passo 6: Configuração do Firewall do Windows
+## Passo 7: Configuração do Firewall do Windows
 Para que o WinSCP ou outros clientes consigam se conectar, é necessário abrir a porta padrão (`22`) nas regras de tráfego de entrada.
 
 Execute este comando no PowerShell de Administrador para criar a regra automaticamente:
@@ -103,7 +121,7 @@ New-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -DisplayName 'OpenSSH SSH Serv
 
 ---
 
-## Passo 7: Validação da Instalação
+## Passo 8: Validação da Instalação
 Para confirmar se o servidor SSH está ativo e respondendo na porta local, execute:
 ```powershell
 Test-NetConnection -ComputerName localhost -Port 22

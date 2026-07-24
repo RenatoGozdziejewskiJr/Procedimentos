@@ -21,6 +21,7 @@ A documentação está organizada nas seguintes categorias:
 
 ### 🐧 [Linux](./Linux/)
 - [Guia Básico do Tmux](./Linux/tmux.md)
+- [Instalação e Configuração de Plugins no Tmux](./Linux/tmux-instalacao-plugins.md)
 - [Gerenciamento do WSL e Apps Gráficos](./Linux/wsl.md)
 
 ### 🌐 [Redes](./Redes/)

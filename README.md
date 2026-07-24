@@ -9,6 +9,7 @@ A documentação está organizada nas seguintes categorias:
 
 ### 🏭 [Buhler](./Buhler/)
 - [Build Fraenkel](./Buhler/Build-Fraenkel.md)
+- [Machine Configuration Tool (CA20-2541)](./Buhler/MCT-Machine-Configuration-Tool-CA20-2541.md)
 
 ### 🛠️ [Desenvolvimento](./Desenvolvimento/)
 - [Ambiente: Angular, Nx, Node e .NET](./Desenvolvimento/angular-nx-node.md)

@@ -1,42 +1,57 @@
-# Guia de Instalação e Configuração do TigerVNC no Radxa A7s
-Este documento descreve o procedimento passo a passo para instalar, configurar e automatizar a inicialização do TigerVNC em uma placa Radxa A7s acessada de forma *headless* (sem monitor), utilizando um túnel SSH para garantir a segurança da conexão.
+# Guia de Configuração do Servidor VNC no Radxa Cubie A7S
 
-## Pré-requisitos
-- Placa Radxa A7s rodando Linux com interface gráfica já instalada.
-- Acesso via terminal (SSH) à placa.
-- Cliente TigerVNC Viewer instalado no computador host (ex: Windows).
+Este procedimento descreve o passo a passo para instalar e configurar o servidor VNC (**TigerVNC**) no dispositivo **Radxa Cubie A7S**, permitindo o controle da área de trabalho gráfica remotamente via rede local, baseado na documentação oficial da Radxa.
 
 ---
 
-## Passo 1: Instalar o Servidor VNC
-Acesse o Radxa via SSH e instale o pacote do servidor TigerVNC.
+## 1. Pré-requisitos
+
+- Dispositivo **Radxa Cubie A7S** com sistema operacional e ambiente gráfico instalados (ex.: Radxa OS com KDE Plasma).
+- Acesso ao terminal do Radxa (direto via console ou via SSH).
+- Ambos os dispositivos (computador cliente e Radxa) conectados na mesma rede local.
+- Para acessar a área de trabalho remota a partir do computador cliente, utilize um cliente VNC de sua preferência, como **TigerVNC Viewer** ou **RealVNC Viewer**.
+
+---
+
+## 2. Instalação do Servidor VNC
+
+Acesse o terminal do Radxa A7S e instale os pacotes necessários:
 
 ```bash
 sudo apt update
-sudo apt install tigervnc-standalone-server
-
+sudo apt install tigervnc-standalone-server tigervnc-common -y
 ```
 
-## Passo 2: Configurar a Senha de Acesso
-Crie a senha que será solicitada ao conectar pelo VNC Viewer.
+---
+
+## 3. Definir a Senha de Acesso Remoto
+
+Defina a senha que será solicitada durante a conexão VNC:
 
 ```bash
 vncpasswd
-
 ```
-*Nota: Quando perguntado se deseja criar uma senha "view-only" (apenas visualização), você pode responder *`n`* (não).*
 
-## Passo 3: Configurar o Script de Inicialização (xstartup)
-Crie o arquivo que diz ao VNC qual interface gráfica deve ser carregada.
+- Digite a senha e confirme-a (os caracteres não serão exibidos na tela).
+- Quando questionado se deseja criar uma senha apenas para visualização (*view-only password*):
+  ```text
+  Would you like to enter a view-only password (y/n)? n
+  ```
+  Digite `n` e pressione Enter.
 
-1. Abra o arquivo para edição:
+---
+
+## 4. Configurar o Arquivo de Inicialização do VNC (`xstartup`)
+
+Crie e edite o arquivo `~/.vnc/xstartup` para definir o ambiente de desktop gráfico que será carregado:
+
+1. Abra o arquivo com o editor `nano`:
 
 ```bash
 nano ~/.vnc/xstartup
-
 ```
 
-1. Cole o seguinte conteúdo (isso fará o VNC usar o ambiente gráfico padrão do sistema):
+2. Adicione o seguinte conteúdo:
 
 ```bash
 #!/bin/sh
@@ -45,102 +60,62 @@ unset DBUS_SESSION_BUS_ADDRESS
 export XDG_SESSION_TYPE=x11
 export DESKTOP_SESSION=plasma
 exec startplasma-x11
-
 ```
 
-1. Salve o arquivo e dê permissão de execução:
+3. Salve o arquivo (`Ctrl + O`, `Enter`) e saia (`Ctrl + X`).
+
+4. Torne o arquivo executável:
 
 ```bash
 chmod +x ~/.vnc/xstartup
-
 ```
 
 ---
 
-## Passo 4: Criar o Serviço para Inicialização Automática (systemd)
-Para que o VNC inicie sozinho toda vez que a placa for ligada, criaremos um serviço no systemd.
+## 5. Gerenciamento do Servidor VNC
 
-1. Crie o arquivo de serviço:
-
-```bash
-sudo nano /etc/systemd/system/vncserver@.service
-
-```
-
-1. Cole o conteúdo abaixo. **Atenção:** Substitua todas as três ocorrências de `SEU_USUARIO` pelo seu nome de usuário real no Radxa:
-
-```ini
-[Unit]
-Description=Servidor TigerVNC
-After=syslog.target network.target
-
-[Service]
-Type=forking
-User=SEU_USUARIO
-Group=SEU_USUARIO
-WorkingDirectory=/home/SEU_USUARIO
-
-# A linha PIDFile foi intencionalmente omitida para evitar problemas de timeout de inicialização
-ExecStartPre=-/usr/bin/vncserver -kill :%i > /dev/null 2>&1
-ExecStart=/usr/bin/vncserver -localhost yes :%i
-ExecStop=/usr/bin/vncserver -kill :%i
-
-[Install]
-WantedBy=multi-user.target
-
-```
-
-1. Salve e saia.
-
-## Passo 5: Habilitar e Iniciar o Serviço
-1. Recarregue a lista de serviços do sistema:
+### Iniciar o Servidor VNC
+Para iniciar o servidor permitindo conexões remotas de outros dispositivos da rede, utilize o parâmetro `-localhost no`:
 
 ```bash
-sudo systemctl daemon-reload
-
+vncserver -localhost no
 ```
 
-1. (Opcional) Limpe possíveis arquivos de trava residuais de execuções anteriores:
-
-```bash
-sudo rm -rf /tmp/.X1-lock /tmp/.X11-unix/X1
-
+Após a inicialização, o terminal exibirá uma mensagem indicando o número do display e a porta utilizada (por padrão, display `:1` na porta `5901`):
+```text
+New Xtigervnc server 'radxa:1 (radxa)' on port 5901 for display :1.
 ```
 
-1. Habilite o serviço para rodar no boot (o `1` define o display na porta `:1` ou 5901):
+### Verificar o Status das Sessões Ativas
+Para listar as sessões do VNC em execução:
 
 ```bash
-sudo systemctl enable vncserver@1.service
-
+vncserver -list
 ```
 
-1. Inicie o serviço:
+A saída mostrará o identificador do display (`X DISPLAY #`), a porta (`RFB PORT #`) e o ID do processo.
+
+### Parar o Servidor VNC
+Para encerrar uma sessão específica, informe o número do display (por exemplo, `:1`):
 
 ```bash
-sudo systemctl start vncserver@1.service
-
-```
-
-1. Verifique se está rodando corretamente (deve constar como *active (running)*):
-
-```bash
-sudo systemctl status vncserver@1.service
-
+vncserver -kill :1
 ```
 
 ---
 
-## Passo 6: Conectar a partir do Computador Host
-Como configuramos o VNC com `-localhost yes` por segurança, o acesso deve ser feito via túnel SSH.
+## 6. Conexão a partir do Cliente VNC
 
-1. No seu computador (Windows/WSL ou outro Linux/Mac), abra um terminal e crie o túnel:
+1. Abra o cliente VNC no computador remoto (**RealVNC Viewer** ou **TigerVNC Viewer**).
+2. No campo de endereço/servidor, informe o endereço IP do Radxa seguido do display ou porta:
+   - Exemplo: `<IP_DO_RADXA>:1` ou `<IP_DO_RADXA>:5901`
+3. Conecte-se e insira a senha criada no **Passo 3**.
 
-```bash
-ssh -L 5901:localhost:5901 SEU_USUARIO@IP_DO_RADXA
+---
 
-```
-*(Mantenha esta janela de terminal aberta enquanto estiver usando o VNC).*
+## 7. Dicas e Resolução de Problemas
 
-1. Abra o **TigerVNC Viewer**.
-2. No campo "VNC server", digite: `localhost:5901` (ou `127.0.0.1:5901`).
-3. Conecte e insira a senha definida no Passo 2.
+- **Tela preta ao conectar via VNC:**
+  Caso encontre uma tela preta após a autenticação, verifique se a opção de **auto-login** do sistema está ativada. Se estiver ativada, desative o auto-login nas configurações do sistema do Radxa para evitar conflitos de sessão com o servidor X.
+- **Portas e Displays:**
+  Cada sessão VNC utiliza uma porta baseada em `5900 + número do display` (ex.: `:1` = `5901`, `:2` = `5902`).

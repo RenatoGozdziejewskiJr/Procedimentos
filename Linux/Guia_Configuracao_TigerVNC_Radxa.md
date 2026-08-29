@@ -119,3 +119,69 @@ vncserver -kill :1
   Caso encontre uma tela preta após a autenticação, verifique se a opção de **auto-login** do sistema está ativada. Se estiver ativada, desative o auto-login nas configurações do sistema do Radxa para evitar conflitos de sessão com o servidor X.
 - **Portas e Displays:**
   Cada sessão VNC utiliza uma porta baseada em `5900 + número do display` (ex.: `:1` = `5901`, `:2` = `5902`).
+
+---
+
+## 8. Inicialização Automática no Boot (systemd)
+
+Para dispositivos que operam no modo *headless* (sem monitor), a forma recomendada e integrada às versões atuais do TigerVNC no Debian/Ubuntu é utilizar o serviço nativo `tigervncserver@.service`.
+
+Dessa forma, o servidor VNC iniciará automaticamente com o boot do sistema, sem necessidade de conexão manual prévia por SSH.
+
+---
+
+### Passo a Passo de Configuração
+
+#### 1. Associar o Display ao Usuário
+Edite o arquivo global de atribuição de usuários `/etc/tigervnc/vncserver.users`:
+
+```bash
+sudo nano /etc/tigervnc/vncserver.users
+```
+
+Adicione a linha abaixo mapeando o display `:1` para o seu usuário (substitua `radxa` pelo seu nome de usuário real se for diferente):
+```text
+:1=radxa
+```
+Salve com `Ctrl + O`, `Enter` e saia com `Ctrl + X`.
+
+#### 2. Configurar os Parâmetros da Sessão do Usuário
+Crie ou edite o arquivo `~/.vnc/config` no diretório do usuário:
+
+```bash
+nano ~/.vnc/config
+```
+
+Adicione as configurações de ambiente, resolução e liberação de rede:
+```text
+session=plasma
+geometry=1280x720
+localhost=0
+```
+
+> **Dica de Desempenho:** A resolução `1280x720` (HD) ou `1366x768` proporciona uma experiência muito mais fluida e reduz o uso de CPU/RAM e temperatura da placa em comparação a `1920x1080` (Full HD). Caso precise de mais espaço de tela, altere para `1920x1080`.
+
+#### 3. Habilitar e Iniciar o Serviço no Boot
+Recarregue o gerenciador do systemd e ative o serviço (observe os dois pontos `:` antes do 1):
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now tigervncserver@:1.service
+```
+
+#### 4. Verificar o Status do Serviço
+Confirme se o serviço está ativo e em execução:
+
+```bash
+sudo systemctl status tigervncserver@:1.service
+```
+
+Se precisar consultar os logs em tempo real para diagnóstico:
+```bash
+journalctl -u tigervncserver@:1.service -e --no-pager
+```
+
+#### 5. Parar ou Reiniciar o Serviço (quando necessário)
+- Para reiniciar: `sudo systemctl restart tigervncserver@:1.service`
+- Para parar: `sudo systemctl stop tigervncserver@:1.service`
+- Para desativar da inicialização: `sudo systemctl disable tigervncserver@:1.service`

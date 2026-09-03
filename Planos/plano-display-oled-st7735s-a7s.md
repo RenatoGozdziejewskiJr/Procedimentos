@@ -11,7 +11,7 @@ O display precisa ser alimentado corretamente e ter seus sinais lógicos conecta
 | SCL / SCK | Pino 23 | SPI1-CLK (Função alternativa 4) |
 | SDA / MOSI | Pino 19 | SPI1-MOSI (Função alternativa 4) |
 | CS | Pino 24 | SPI1-CS0 (Função alternativa 6) |
-| DC / RS | Pino 27 | PD17 (Saída GPIO comum) |
+| DC / RS | Pino 11 | PB1 (Saída GPIO comum) |
 | RES / RST | Pino 29 | PB2 (Saída GPIO comum) |
 
 *(Nota: Pinos GND adicionais disponíveis na placa incluem 9, 14, 20, 26 e 30).*
@@ -22,7 +22,6 @@ O display precisa ser alimentado corretamente e ter seus sinais lógicos conecta
 Nesta abordagem, o sistema operacional expõe os pinos, e a sua aplicação é totalmente responsável por enviar os comandos de desenho para a tela. Excelente para aplicações autônomas construídas em C++ ou Python.
 
 ### A.1. Configuração do SO (`rsetup`)
-
 1. Execute `rsetup` no terminal.
 2. Navegue até **Overlays**.
 3. Marque a opção: `[] Enable spidev on SPI1`
@@ -34,11 +33,11 @@ Nesta abordagem, o sistema operacional expõe os pinos, e a sua aplicação é t
 ***Instalação de Dependências:***
 
 ```bash
-sudo apt-get install python3-pip python3-spidev python3-libgpiod
-pip3 install adafruit-blinka adafruit-circuitpython-rgb-display pillow
+sudo apt-get update
+sudo apt-get install python3-pip python3-dev python3-libgpiod
+pip3 install spidev adafruit-blinka adafruit-circuitpython-rgb-display pillow
 
 ```
-
 ***Script de Teste (***`display_test.py`***):***
 
 ```python
@@ -48,7 +47,7 @@ import adafruit_rgb_display.st7735 as st7735
 from PIL import Image, ImageDraw
 
 cs_pin = digitalio.DigitalInOut(board.D24) 
-dc_pin = digitalio.DigitalInOut(board.D27)
+dc_pin = digitalio.DigitalInOut(board.D11)
 reset_pin = digitalio.DigitalInOut(board.D29)
 
 spi = board.SPI()
@@ -86,7 +85,6 @@ sudo apt-get update
 sudo apt-get install gpiod libgpiod-dev libgpiodcxx-dev
 
 ```
-
 `CMakeLists.txt`***:***
 
 ```cmake
@@ -98,7 +96,6 @@ add_executable(display_main main.cpp)
 target_link_libraries(display_main PRIVATE gpiodcxx)
 
 ```
-
 `main.cpp`*** (Completo com buffer de linha e ajustes ST7735S):***
 
 ```cpp
@@ -234,7 +231,7 @@ public:
 };
 
 int main() {
-    ST7735 display("/dev/spidev1.0", "gpiochip1", 17, 2, 160, 80);
+    ST7735 display("/dev/spidev1.0", "gpiochip1", 1 /* PB1 */, 2 /* PB2 */, 160, 80);
     display.init();
     
     display.fillScreen(COLOR_BLACK);
@@ -252,7 +249,7 @@ int main() {
 ---
 
 ## *Opção B: Método "Framebuffer do Kernel" (Monitor Nativo)*
-*Nesta abordagem, o driver *`fb_st7735r`* do Linux assume o controle exclusivo do SPI. O display vira um monitor secundário (*`/dev/fbX`*). Excelente para renderizar interfaces Text User Interface (como ****FTXUI****) ou Graphical User Interfaces (como ****Dear ImGui****) diretamente através das abstrações do sistema operacional.*
+*Nesta abordagem, o driver *`fb_st7735r`* do Linux assume o controle exclusivo do SPI. O display vira um monitor secundário (*`/dev/fbX`*). Excelente para renderizar interfaces Text User Interface (como ****FTXUI) ou Graphical User Interfaces (como Dear ImGui****) diretamente através das abstrações do sistema operacional.*
 
 ### *B.1. Preparação*
 *No *`rsetup`*, garanta que a opção *`[ ] Enable spidev on SPI1`* esteja ****desmarcada****.*
@@ -296,7 +293,7 @@ int main() {
         
         /* Mapeamento interno do Allwinner A733 */
         reset-gpios = <&pio 1 2 GPIO_ACTIVE_LOW>; /* PB2 -> Pino 29 */
-        dc-gpios = <&pio 3 17 GPIO_ACTIVE_HIGH>;  /* PD17 -> Pino 27 */
+        dc-gpios = <&pio 1 1 GPIO_ACTIVE_HIGH>;   /* PB1 -> Pino 11 */
         
         debug = <0>;
     };
@@ -305,7 +302,6 @@ int main() {
 ```
 
 ### *B.3. Compilação e Ativação*
-
 1. *Compile: *`dtc -@ -I dts -O dtb -o st7735s-cubie-a7s.dtbo st7735s-cubie-a7s.dts`
 2. *Copie para a pasta de overlays da Radxa: *`sudo cp st7735s-cubie-a7s.dtbo /boot/dtbo/`
 3. *Execute *`rsetup`*, vá em Overlays, ative a opção e reinicie a placa.*
@@ -333,3 +329,52 @@ Depois, execute o binário C++ do FTXUI direcionando a renderização para lá:
 Injete variáveis de ambiente para fazer o backend gráfico saltar o servidor de janelas (X11/Wayland) e desenhar diretamente no dispositivo:
 
 `SDL_VIDEODRIVER=linuxfb SDL_FBDEV=/dev/fb1 ./meu_app_imgui`
+
+---
+
+### Como fazer o Teste de Loopback do SPI
+O conceito é simples: nós vamos ligar a "boca" (MOSI - Pino que envia) diretamente no "ouvido" (MISO - Pino que escuta) do próprio controlador SPI da placa. Tudo o que o Linux enviar, ele mesmo deve receber de volta.
+
+**Passo 1: A Ligação Física**
+
+Como você já habilitou o `spidev` no `rsetup` (Opção A do nosso plano), pegue um único cabo jumper e conecte:
+
+- **Pino 19 (SPI1-MOSI)** conectado diretamente ao **Pino 21 (SPI1-MISO)**.
+- *Desconecte o display SPI durante esse teste.*
+**Passo 2: O Script de Teste**
+
+Você já tem a biblioteca `spidev` do Python instalada. Crie um arquivo chamado `teste_spi.py`:
+
+Python
+
+```plaintext
+import spidev
+
+# Abre o barramento SPI 1, Chip Select 0 (/dev/spidev1.0)
+spi = spidev.SpiDev()
+spi.open(1, 0)
+spi.max_speed_hz = 50000 # Velocidade baixa para o teste
+
+# Uma mensagem qualquer em hexadecimal
+mensagem_enviada = [0xDE, 0xAD, 0xBE, 0xEF, 0x42]
+
+print("Enviando: ", [hex(x) for x in mensagem_enviada])
+
+# O comando xfer2 envia e lê ao mesmo tempo
+mensagem_recebida = spi.xfer2(mensagem_enviada)
+
+print("Recebido: ", [hex(x) for x in mensagem_recebida])
+
+if mensagem_enviada == mensagem_recebida:
+    print("\nSUCESSO! O hardware SPI da Radxa está funcionando perfeitamente!")
+else:
+    print("\nFALHA! O que foi enviado não voltou. Verifique o jumper entre os pinos 19 e 21.")
+
+spi.close()
+
+```
+**O Resultado:**
+
+Execute o script (`python3 teste_spi.py`). Se a linha "Recebido" for exatamente igual à linha "Enviando", você provou que o kernel do Linux, o controlador de hardware do processador e os pinos físicos da placa estão em perfeito estado.
+
+Se o display SPI não funcionar depois de provar isso, você tem a garantia de que o problema é o display ou os fios dele, e não a sua placa Radxa!

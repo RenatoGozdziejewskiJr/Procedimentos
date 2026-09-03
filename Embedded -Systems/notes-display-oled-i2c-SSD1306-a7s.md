@@ -4,7 +4,7 @@ Este documento detalha o plano para conectar e programar um display OLED com com
 
 ## 1. Conexões Físicas (Header 30 Pinos)
 
-Para este guia, utilizaremos o barramento **TWI2** (I2C) disponível no header da placa. A tensão lógica será de 3.3V.
+Para este guia, utilizaremos o barramento **TWI2** (I2C) disponível no header da placa. A tensão lógica será de 3.3 V.
 
 | Pino do Display | Radxa Cubie A7S (Header 30 Pinos) | Função na Placa |
 | :--- | :--- | :--- |
@@ -23,7 +23,7 @@ O Linux precisa saber que você deseja usar esses pinos para comunicação TWI/I
 
 1. No terminal SSH, execute `rsetup`.
 2. Vá em **Overlays**.
-3. Marque a opção: `[*] Enable TWI2`
+3. Marque a opção `[*] Enable TWI2`.
 4. Selecione `<Ok>`, saia e reinicie a placa (`sudo reboot`).
 5. *(Opcional)* Verifique se o display foi reconhecido instalando o `i2c-tools` (`sudo apt install i2c-tools`) e rodando no terminal:
    `sudo i2cdetect -y 2`
@@ -33,58 +33,56 @@ O Linux precisa saber que você deseja usar esses pinos para comunicação TWI/I
 
 ## 3. Implementação em Python
 
-A forma mais fácil de trabalhar com o SSD1306 no Python é utilizando a biblioteca Blinka (camada de hardware) e o Pillow (PIL) para desenhar gráficos.
+Devido à incompatibilidade da biblioteca `adafruit-blinka` com o sistema da Radxa, utilizaremos a biblioteca `luma.oled`, que interage diretamente com o arquivo nativo `/dev/i2c-2` do kernel, oferecendo excelente suporte para a biblioteca gráfica Pillow.
 
 **Instalação de Dependências:**
+
 ```bash
 sudo apt-get update
-sudo apt-get install python3-pip python3-smbus i2c-tools
-pip3 install adafruit-blinka adafruit-circuitpython-ssd1306 pillow
+sudo apt-get install python3-pip python3-smbus i2c-tools python3-dev
+pip3 install luma.oled pillow
 ```
 
-**Script de Teste (`oled_test.py`):**
+### 3.1. Script de Teste (`oled_test.py`)
+
 ```python
-import board
-import busio
-import adafruit_ssd1306
-from PIL import Image, ImageDraw, ImageFont
+from luma.core.interface.serial import i2c
+from luma.oled.device import ssd1306
+from luma.core.render import canvas
+from PIL import ImageDraw
 
-# Inicializa o barramento I2C do sistema (mapeado pelo Blinka)
-i2c = busio.I2C(board.SCL, board.SDA)
+# Inicializa a comunicação I2C nativamente no barramento 2 (/dev/i2c-2)
+# O endereço padrão 0x3C é assumido automaticamente pela biblioteca
+serial = i2c(port=2, address=0x3C)
 
-# Configuração do display OLED (ajuste para 128x32 se for o modelo menor)
-disp = adafruit_ssd1306.SSD1306_I2C(128, 64, i2c, addr=0x3c)
+# Cria o dispositivo do display (ajuste width e height se o seu for 128x32)
+device = ssd1306(serial, width=128, height=64)
 
-# Limpa o display
-disp.fill(0)
-disp.show()
+# O gerenciador de contexto 'canvas' lida automaticamente com o envio da imagem (disp.show())
+print("Desenhando na tela...")
+with canvas(device) as draw:
+    # Desenha um retângulo na borda externa
+    draw.rectangle(device.bounding_box, outline="white", fill="black")
+    
+    # Adiciona um texto simples
+    draw.text((15, 25), "Radxa A7S - I2C!", fill="white")
 
-# Cria uma imagem em branco com 1-bit de cor
-image = Image.new("1", (disp.width, disp.height))
-draw = ImageDraw.Draw(image)
-
-# Desenha um retângulo na borda e um texto no centro
-draw.rectangle((0, 0, disp.width - 1, disp.height - 1), outline=255, fill=0)
-draw.text((10, 25), "Radxa A7S - I2C!", fill=255)
-
-# Envia a imagem para a tela
-disp.image(image)
-disp.show()
+print("Teste concluído!")
 ```
-
----
 
 ## 4. Implementação em C++ (CMake)
 
 Ao usar I2C no Linux via C++, interagimos diretamente com a interface de dispositivos do kernel `/dev/i2c-X`. Não precisamos da `libgpiod` porque não estamos manipulando pinos individuais; o controlador I2C lida com os bits para nós.
 
-**Instalação de Dependências:**
+### 4.1. Instalação de Dependências
+
 ```bash
 sudo apt-get update
 sudo apt-get install libi2c-dev
 ```
 
-**`CMakeLists.txt`:**
+### 4.2. `CMakeLists.txt`
+
 ```cmake
 cmake_minimum_required(VERSION 3.20)
 project(SSD1306_Driver VERSION 1.0)
@@ -92,7 +90,8 @@ set(CMAKE_CXX_STANDARD 20)
 add_executable(oled_main main.cpp)
 ```
 
-**`main.cpp`:**
+### 4.3. `main.cpp`
+
 ```cpp
 #include <iostream>
 #include <fcntl.h>

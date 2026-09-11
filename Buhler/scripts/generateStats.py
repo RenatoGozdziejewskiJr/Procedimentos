@@ -182,7 +182,6 @@ def generate_data(start_date, end_date, division_codes, defect_codes, blank_code
                 str_division_3, throughput_3
             ) VALUES (?, ?, ?, ?, ?, ?, ?)''', record_throughput)
 
-
         current_time += timedelta(minutes=1)  # add 1 minute
         nrRecords += 1
 

@@ -54,7 +54,7 @@ ls -l generateStats.py statistics.sqlite
 
 ## Execução
 
-Execute o script informando a data e a hora inicial e final no formato `YYYY-MM-DD HH:MM`:
+Execute o script informando a data e a hora local inicial e final no formato `YYYY-MM-DD HH:MM`. O script detecta o fuso horário configurado no sistema operacional e converte os valores para UTC antes de consultar ou gravar o banco:
 
 ```bash
 python generateStats.py 'YYYY-MM-DD HH:MM' 'YYYY-MM-DD HH:MM'
@@ -66,7 +66,9 @@ Exemplo para gerar um registro por minuto durante uma hora:
 python generateStats.py '2026-09-11 10:00' '2026-09-11 11:00'
 ```
 
-As datas inicial e final são inclusivas. Portanto, o exemplo acima gera 61 registros em cada tabela.
+Em um computador configurado como UTC−3, o intervalo do exemplo será gravado no banco de `2026-09-11 13:00:00` até `2026-09-11 14:00:00` UTC. Em outro país, o resultado será ajustado conforme o fuso local configurado. As datas inicial e final são inclusivas; portanto, serão gerados 61 registros em cada tabela.
+
+Antes de executar, confirme se a data, a hora e o fuso horário do sistema operacional estão corretos.
 
 Se o comando `python` não estiver disponível e a máquina usar Python 3, execute:
 
@@ -79,6 +81,7 @@ python3 generateStats.py '2026-09-11 10:00' '2026-09-11 11:00'
 Quando a conexão e as tabelas forem encontradas, a saída será semelhante a:
 
 ```text
+UTC period: 2026-09-11 13:00 to 2026-09-11 14:00
 Connection ok. All required tables found.
 Tables cleared for the specified period.
 Inserted 61 records into the database.

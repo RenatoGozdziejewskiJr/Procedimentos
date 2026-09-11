@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import sqlite3
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import sys
 
 DIVISION_NAMES = (
@@ -20,6 +20,9 @@ EJECTOR_RATE_RANGES = (
     (301000, 350000),
     (350000, 400000),
 )
+
+def local_time_to_utc(date_time):
+    return date_time.astimezone(timezone.utc).replace(tzinfo=None)
 
 def check_connection_and_table():
     conn = None
@@ -200,9 +203,15 @@ def main():
     start_date_str = sys.argv[1]
     end_date_str = sys.argv[2]
 
-    # Convert strings to datetime
-    start_date = datetime.strptime(start_date_str, '%Y-%m-%d %H:%M')
-    end_date = datetime.strptime(end_date_str, '%Y-%m-%d %H:%M')
+    # Interpret the informed period using the computer's local timezone and store it as UTC.
+    start_date = local_time_to_utc(datetime.strptime(start_date_str, '%Y-%m-%d %H:%M'))
+    end_date = local_time_to_utc(datetime.strptime(end_date_str, '%Y-%m-%d %H:%M'))
+    print(
+        "UTC period: {} to {}".format(
+            start_date.strftime('%Y-%m-%d %H:%M'),
+            end_date.strftime('%Y-%m-%d %H:%M')
+        )
+    )
 
     # Check connection and table existence
     if check_connection_and_table():

@@ -9,6 +9,7 @@ A documentação está organizada nas seguintes categorias:
 
 ### 🏭 [Buhler](./Buhler/)
 - [Build Fraenkel](./Buhler/Build-Fraenkel.md)
+- [Geração de Dados de Estatísticas para Millikan e Merlin](./Buhler/generateStats.md)
 - [Machine Configuration Tool (CA20-2541)](./Buhler/MCT-Machine-Configuration-Tool-CA20-2541.md)
 - [Gravação de Imagem do Windows 32 bits (BIOS / MBR)](./Buhler/procedimento_legacy_32bits.md)
 - [Gravação de Imagem do Windows 64 bits (UEFI / GPT)](./Buhler/procedimento_uefi_64bits.md)

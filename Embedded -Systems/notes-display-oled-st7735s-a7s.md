@@ -1,28 +1,32 @@
 # Plano de Integração: Display LCD TFT/OLED (ST7735 / ST7735S) na Radxa Cubie A7S
+
 Este documento detalha o plano completo para conectar e programar o display colorido (controlador ST7735 ou sua variante ST7735S, resolução 160x80) na placa Radxa Cubie A7S. Estão descritas duas abordagens distintas para integração via software.
 
 ## 1. Conexões Físicas (Header de 30 Pinos)
+
 O display precisa ser alimentado corretamente e ter seus sinais lógicos conectados. As portas GPIO da Cubie A7S operam em uma tensão de 3.3 V, ideal para este componente.
 
 **Importante:** É obrigatório ligar o pino BLK (Backlight) em 3.3 V para que a luz de fundo acenda; caso contrário, a tela ficará completamente preta.
 
-| Pino do display | Radxa Cubie A7S (header de 30 pinos) | Função na placa |
-| --- | --- | --- |
-| GND | Pino 6 | GND (terra) |
-| VCC | Pino 1 | 3.3 V (alimentação) |
-| BLK | Pino 17 | 3.3 V (luz de fundo) |
-| SCL / SCK | Pino 23 | SPI1-CLK (função alternativa 4) |
-| SDA / MOSI | Pino 19 | SPI1-MOSI (função alternativa 4) |
-| CS | Pino 24 | SPI1-CS0 (função alternativa 6) |
-| DC / RS | Pino 11 | PB1 (linha 33 do gpiochip0) |
-| RES / RST | Pino 29 | PB2 (linha 34 do gpiochip0) |
+| Pino do display | Radxa Cubie A7S (header de 30 pinos) | Função na placa                  |
+| --------------- | ------------------------------------ | -------------------------------- |
+| GND             | Pino 6                               | GND (terra)                      |
+| VCC             | Pino 1                               | 3.3 V (alimentação)              |
+| BLK             | Pino 17                              | 3.3 V (luz de fundo)             |
+| SCL / SCK       | Pino 23                              | SPI1-CLK (função alternativa 4)  |
+| SDA / MOSI      | Pino 19                              | SPI1-MOSI (função alternativa 4) |
+| CS              | Pino 24                              | SPI1-CS0 (função alternativa 6)  |
+| DC / RS         | Pino 11                              | PB1 (linha 33 do gpiochip0)      |
+| RES / RST       | Pino 29                              | PB2 (linha 34 do gpiochip0)      |
 
 > **Nota:** Pinos GND adicionais disponíveis na placa incluem 9, 14, 20, 26 e 30.
 
 ## 2. Opção A: Método de Espaço de Usuário
+
 Nesta abordagem, o sistema operacional expõe os pinos, e a aplicação fica responsável por enviar os comandos de desenho para a tela. É adequada para aplicações autônomas construídas em C++ ou Python, usando `spidev` e `libgpiod`.
 
 ### 2.1. Configuração do SO (`rsetup`)
+
 1. Execute `rsetup` no terminal.
 2. Navegue até **Overlays**.
 3. Marque a opção `[] Enable spidev on SPI1`.
@@ -49,6 +53,7 @@ Lembrando que os bancos seguem ordem alfabética (PA=0, PB=1, PC=2, PD=3):
 - **Pino RST (PB2):** Banco 1 x 32 + 2 = **Linha 34**
 
 ### 2.3. Implementação em Python
+
 Devido a limitações e dependências de bibliotecas de terceiros (`Adafruit-Blinka` e `periphery`), será utilizada a API nativa do kernel por meio da `libgpiod`.
 
 #### Instalação de dependências
@@ -148,27 +153,38 @@ if __name__ == "__main__":
 ```
 
 ### 2.4. Implementação em C++ (CMake)
+
 Para obter o máximo de desempenho com C++20 ou C++23, manipula-se o barramento com `ioctl` e os pinos de controle com a `libgpiod`.
 
 #### Instalação das dependências
 
 ```bash
 sudo apt-get update
+sudo apt-get install build-essential
+sudo apt-get install cmake
 sudo apt-get install gpiod libgpiod-dev libgpiodcxx-dev
 
+# no debian
+sudo apt-get install libgpiod-dev
+
 ```
-`CMakeLists.txt`***:***
+
+`CMakeLists.txt`**_:_**
 
 ```cmake
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.18)
 project(ST7735_Driver VERSION 1.0)
 set(CMAKE_CXX_STANDARD 20)
-find_package(gpiod REQUIRED)
-add_executable(display_main main.cpp)
-target_link_libraries(display_main PRIVATE gpiodcxx)
+
+# Criamos o executável apontando para o seu arquivo fonte
+add_executable(spi-test spi-test.cpp)
+
+# Linkamos diretamente as bibliotecas do sistema (equivale ao -lgpiodcxx -lgpiod)
+target_link_libraries(spi-test PRIVATE gpiodcxx gpiod)
 
 ```
-`main.cpp`*** (Completo com buffer de linha e ajustes ST7735S):***
+
+`main.cpp`**_ (Completo com buffer de linha e ajustes ST7735S):_**
 
 Para o script original em C++ que utiliza os bindings `gpiodcxx`, atualize a instanciação do objeto no `main.cpp` para refletir os endereços corretos do `gpiochip0` e configure a direção da linha com valores padrão, de forma semelhante à solução em Python:
 
@@ -223,7 +239,7 @@ private:
         // OFFSET PARA ST7735S (se houver lixo na borda, some +1 no X e +26 no Y)
         uint8_t off_x = 1;
         uint8_t off_y = 26;
-        
+
         send_command(0x2A); // CASET
         send_data(0x00); send_data(x0 + off_x);
         send_data(0x00); send_data(x1 + off_x);
@@ -236,7 +252,7 @@ private:
     }
 
 public:
-    ST7735(const std::string& spi_dev, const std::string& gpio_chip, int dc_offset, int res_offset, int w, int h) 
+    ST7735(const std::string& spi_dev, const std::string& gpio_chip, int dc_offset, int res_offset, int w, int h)
         : width(w), height(h) {
         spi_fd = open(spi_dev.c_str(), O_RDWR);
         uint8_t mode = SPI_MODE_0;
@@ -249,33 +265,33 @@ public:
 	 // ou podemos escrever usando os pinos nomeados:
 	 // dc_line = chip.find_line("PIN_11");
 	 // res_line = chip.find_line("PIN_29");
-        
+
         gpiod::line_request config;
         config.request_type = gpiod::line_request::DIRECTION_OUTPUT;
         config.consumer = "st7735"; // Identificação para o kernel
-        
+
         // O segundo parâmetro é o default_val, essencial para evitar Errno 22
-        dc_line.request(config, 0); 
+        dc_line.request(config, 0);
         res_line.request(config, 1);
     }
-    
+
     void init() {
         res_line.set_value(0);
         usleep(100000);
         res_line.set_value(1);
         usleep(100000);
-        
+
         send_command(0x01); // SWRESET
         usleep(150000);
         send_command(0x11); // SLPOUT
         usleep(200000);
-        
+
         send_command(0x3A); // COLMOD
         send_data(0x05);    // 16-bit / pixel (RGB565)
 
         // AJUSTE ST7735S: 0x68 ativa BGR (corrige Vermelho/Azul trocado).
         send_command(0x36); // MADCTL
-        send_data(0x68);    
+        send_data(0x68);
 
         send_command(0x29); // DISPON
         usleep(100000);
@@ -291,7 +307,7 @@ public:
 
         size_t bytes_per_row = w * 2;
         std::vector<uint8_t> row_buffer(bytes_per_row);
-        
+
         for (int i = 0; i < w; ++i) {
             row_buffer[i * 2] = color_high;
             row_buffer[i * 2 + 1] = color_low;
@@ -315,26 +331,46 @@ int main() {
     // ATUALIZADO: Usando o gpiochip0, PB1 (Linha 33) e PB2 (Linha 34)
     ST7735 display("/dev/spidev1.0", "gpiochip0", 33, 34, 160, 80);
     display.init();
-    
+
     display.fillScreen(COLOR_BLACK);
     usleep(500000);
-    
+
     display.fillScreen(COLOR_GREEN);
     usleep(2000000);
-    
+
     display.drawRectangle(40, 20, 80, 40, COLOR_RED);
     return 0;
 }
 
 ```
 
+# Compilando diretamente com g++:
+
+```bash
+g++ -std=c++20 spi-test.cpp -o spi-test -lgpiodcxx
+g++ spi-test.cpp -o spi-test -lgpiodcxx -lgpiod
+```
+
+# Compilando com CMake:
+
+```bash
+mkdir build
+cd build
+cmake ..
+make
+sudo ./spi-test
+```
+
 ## 3. Opção B: Método de Framebuffer do Kernel
+
 Nesta abordagem, o driver `fb_st7735r` do Linux assume o controle exclusivo do SPI. O display passa a funcionar como um monitor secundário (`/dev/fbX`). Essa opção é adequada para renderizar interfaces de terminal, como FTXUI, ou interfaces gráficas, como Dear ImGui, diretamente pelas abstrações do sistema operacional.
 
 ### 3.1. Preparação
+
 No `rsetup`, garanta que a opção `[ ] Enable spidev on SPI1` esteja desmarcada.
 
 ### 3.2. Criar o Device Tree Overlay (`.dts`)
+
 Crie um arquivo chamado `st7735s-cubie-a7s.dts`:
 
 ```dts
@@ -382,27 +418,32 @@ Crie um arquivo chamado `st7735s-cubie-a7s.dts`:
 ```
 
 ### 3.3. Compilação e ativação
+
 Compile o overlay:
 
 ```bash
 dtc -@ -I dts -O dtb -o st7735s-cubie-a7s.dtbo st7735s-cubie-a7s.dts
 
 ```
+
 Copie o arquivo para a pasta de overlays da Radxa:
 
 ```bash
 sudo cp st7735s-cubie-a7s.dtbo /boot/dtbo/
 
 ```
+
 Execute `rsetup`, vá até **Overlays**, ative a opção correspondente e reinicie a placa.
 
 ### 3.4. Testar o framebuffer (`/dev/fbX`)
+
 Para limpar a tela:
 
 ```bash
 sudo dd if=/dev/zero of=/dev/fbX bs=10k count=1
 
 ```
+
 Para enviar uma imagem:
 
 ```bash
@@ -411,15 +452,18 @@ ffmpeg -i imagem.jpg -f rawvideo -pix_fmt rgb565 -s 160x80 /dev/fbX
 ```
 
 ### 3.5. Executar aplicações no framebuffer
+
 O monitor principal da placa, conectado via USB-C, continuará sendo a tela primária (`fb0`). Para direcionar as interfaces ao painel secundário, use os exemplos abaixo.
 
 #### Console do Linux ou TUI (FTXUI)
+
 Mapeie um terminal virtual, por exemplo `tty2`, para o framebuffer SPI, por exemplo `fb1`:
 
 ```bash
 sudo con2fbmap 2 1
 
 ```
+
 Depois, execute o binário C++ do FTXUI direcionando a renderização para esse terminal:
 
 ```bash
@@ -428,6 +472,7 @@ sudo ./meu_app_ftxui < /dev/tty2 > /dev/null 2>&1
 ```
 
 #### Interface gráfica (Dear ImGui via SDL2)
+
 Defina as variáveis de ambiente para usar o backend `linuxfb` e desenhar diretamente no dispositivo:
 
 ```bash
@@ -436,15 +481,18 @@ SDL_VIDEODRIVER=linuxfb SDL_FBDEV=/dev/fb1 ./meu_app_imgui
 ```
 
 ## 4. Teste de Loopback do SPI
+
 O conceito é simples: conecte a saída MOSI, que envia os dados, diretamente à entrada MISO, que recebe os dados. Tudo o que o Linux enviar deverá ser recebido de volta.
 
 ### 4.1. Ligação física
+
 Como o `spidev` já foi habilitado no `rsetup` pela Opção A, conecte um único cabo jumper:
 
 - Pino 19 (SPI1-MOSI) diretamente ao pino 21 (SPI1-MISO).
 - Desconecte o display SPI durante o teste.
 
 ### 4.2. Script de teste
+
 Crie um arquivo chamado `teste_spi.py`:
 
 ```python
@@ -472,12 +520,14 @@ else:
 spi.close()
 
 ```
+
 Execute o script:
 
 ```bash
 python3 teste_spi.py
 
 ```
+
 Se a linha **Recebido** for exatamente igual à linha **Enviando**, o kernel do Linux, o controlador de hardware do processador e os pinos físicos da placa estão funcionando em conjunto.
 
 Se o display SPI não funcionar depois desse teste, verifique o display e os cabos, pois o loopback isolou o funcionamento básico da placa.

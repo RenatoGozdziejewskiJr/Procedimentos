@@ -8,6 +8,8 @@ O script grava os dados no banco `statistics.sqlite`. Como o caminho do banco é
 
 - Python instalado na máquina.
 - Arquivo `generateStats.py` disponível.
+- Módulo `splintco_python` disponível para comunicação com o software da máquina.
+- O software do equipamento deve estar em execução (acessível via porta 50713 local).
 - Banco `statistics.sqlite` existente em `Sortex/sc_app/storage`.
 - Tabelas abaixo existentes no banco:
   - `string_table`
@@ -16,17 +18,19 @@ O script grava os dados no banco `statistics.sqlite`. Como o caminho do banco é
 
 ## Códigos de Divisões e Defeitos
 
-O script lê os códigos diretamente da tabela `string_table`. Os registros com os nomes abaixo são usados como divisões, nesta ordem:
+O script se conecta ao software da máquina e solicita a lista de defeitos ativa no momento para cada divisão. 
+
+A tabela `string_table` é utilizada apenas para pesquisar o ID numérico correspondente a cada nome de divisão ou defeito. Os seguintes nomes são esperados para as divisões:
 
 1. `PrimaryDivision`
 2. `SecondaryDivision`
 3. `TertiaryDivision`
 
-Os demais registros com nome preenchido são usados como defeitos, respeitando a ordem em que foram inseridos na tabela. O script aceita no máximo oito defeitos.
+Os defeitos retornados pela máquina para cada divisão terão seus IDs pesquisados na `string_table`. O script aceita no máximo oito defeitos por divisão.
 
-Quando existem menos de oito defeitos, as posições restantes recebem o código do registro cujo nome é vazio ou contém somente espaços. Nessas posições, o valor de `ejector_rate` é gravado como `NULL`.
+Quando uma divisão possui menos de oito defeitos configurados, as posições restantes recebem o código numérico do registro cujo nome é vazio ou contém somente espaços na `string_table`. Nessas posições, o valor de `ejector_rate` é gravado como `NULL`.
 
-O script valida esses códigos antes de apagar ou gerar dados. A execução é interrompida se faltar uma divisão, se houver mais de oito defeitos ou se o código do nome vazio necessário não estiver definido.
+O script valida esses dados antes de apagar ou gerar informações. A execução é interrompida se a comunicação com a máquina falhar, se faltar uma divisão na tabela de strings, se houver mais de oito defeitos em uma mesma divisão, ou se o código para o nome vazio não estiver definido.
 
 ## Atenção
 
@@ -82,6 +86,11 @@ Quando a conexão e as tabelas forem encontradas, a saída será semelhante a:
 
 ```text
 UTC period: 2026-09-11 13:00 to 2026-09-11 14:00
+Connected successfully.
+JSON: {...}
+Defect: Chalky Division: PrimaryDivision
+Defect: Yellow Division: SecondaryDivision
+...
 Connection ok. All required tables found.
 Tables cleared for the specified period.
 Inserted 61 records into the database.
@@ -98,7 +107,11 @@ Confirme se o comando está sendo executado dentro de `Sortex/sc_app/storage`, s
 
 ### Mensagem `String table error`
 
-Verifique se `string_table` contém os códigos das três divisões, no máximo oito defeitos e um registro com nome vazio quando houver menos de oito defeitos.
+Verifique se `string_table` contém os códigos das três divisões, os IDs de todos os defeitos que estão sendo reportados pela máquina em tempo real, e um registro com nome vazio quando houver menos de oito defeitos em qualquer uma das divisões.
+
+### Erros de Conexão com o Equipamento (`Failed to connect` / `Protocol or Connection Error`)
+
+O script precisa obter a lista de defeitos comunicando-se com a máquina na porta 50713. Verifique se o serviço principal do equipamento está sendo executado e respondendo às requisições.
 
 ### Mensagem `Connection error`
 

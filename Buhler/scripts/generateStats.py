@@ -4,6 +4,8 @@ import random
 from datetime import datetime, timedelta, timezone
 import sys
 
+import splintco_python
+
 DIVISION_NAMES = (
     'PrimaryDivision',
     'SecondaryDivision',
@@ -27,7 +29,7 @@ def local_time_to_utc(date_time):
 def check_connection_and_table():
     conn = None
     try:
-        conn = sqlite3.connect('statistics.sqlite')
+        conn = sqlite3.connect('.\statistics.sqlite')
         cursor = conn.cursor()
 
         required_tables = (
@@ -59,7 +61,7 @@ def check_connection_and_table():
 
     return True
 
-def load_statistics_codes():
+def load_statistics_codes_and_defects(response):
     conn = sqlite3.connect('statistics.sqlite')
     try:
         cursor = conn.cursor()
@@ -68,46 +70,55 @@ def load_statistics_codes():
     finally:
         conn.close()
 
-    division_codes = {}
-    defect_codes = []
-    blank_codes = []
+    string_map = {}
+    blank_code = None
 
     for name, value in rows:
         normalized_name = '' if name is None else name.strip()
-        if normalized_name in DIVISION_NAMES:
-            if normalized_name in division_codes:
-                raise ValueError("Duplicate string_table entry: {}".format(normalized_name))
-            division_codes[normalized_name] = value
-        elif normalized_name == '':
-            blank_codes.append(value)
+        if normalized_name == '':
+            if blank_code is None:
+                blank_code = value
         else:
-            defect_codes.append(value)
+            string_map[normalized_name] = value
 
-    missing_divisions = [name for name in DIVISION_NAMES if name not in division_codes]
-    if missing_divisions:
-        raise ValueError(
-            "Missing division codes in string_table: {}".format(', '.join(missing_divisions))
-        )
-    if len(defect_codes) > MAX_DEFECTS_PER_DIVISION:
-        raise ValueError(
-            "string_table contains {} defect codes; at most {} are supported".format(
-                len(defect_codes), MAX_DEFECTS_PER_DIVISION
-            )
-        )
-    if len(defect_codes) < MAX_DEFECTS_PER_DIVISION:
-        if len(blank_codes) != 1:
+    ordered_division_codes = []
+    for div_name in DIVISION_NAMES:
+        if div_name not in string_map:
+            raise ValueError("Missing division codes in string_table: {}".format(div_name))
+        ordered_division_codes.append(string_map[div_name])
+
+    defects_by_division = {div_name: [] for div_name in DIVISION_NAMES}
+
+    for defect in getattr(response, "list_of_defects", []):
+        d_name = getattr(defect, 'defect')
+        div_name = getattr(defect, 'division')
+        if d_name and div_name:
+            if div_name in defects_by_division:
+                if d_name in string_map:
+                    defects_by_division[div_name].append(string_map[d_name])
+                else:
+                    print("Warning: Defect {} not found in string_table.".format(d_name))
+
+    defects_per_division_codes = []
+    for div_name in DIVISION_NAMES:
+        codes = defects_by_division[div_name]
+        if len(codes) > MAX_DEFECTS_PER_DIVISION:
             raise ValueError(
-                "string_table must contain exactly one blank name when fewer than {} defects exist".format(
-                    MAX_DEFECTS_PER_DIVISION
+                "Division {} has {} defect codes; at most {} are supported".format(
+                    div_name, len(codes), MAX_DEFECTS_PER_DIVISION
                 )
             )
-        defect_codes.extend(
-            [blank_codes[0]] * (MAX_DEFECTS_PER_DIVISION - len(defect_codes))
-        )
+        if len(codes) < MAX_DEFECTS_PER_DIVISION:
+            if blank_code is None:
+                raise ValueError(
+                    "string_table must contain exactly one blank name when fewer than {} defects exist".format(
+                        MAX_DEFECTS_PER_DIVISION
+                    )
+                )
+            codes.extend([blank_code] * (MAX_DEFECTS_PER_DIVISION - len(codes)))
+        defects_per_division_codes.append(codes)
 
-    ordered_division_codes = [division_codes[name] for name in DIVISION_NAMES]
-    blank_code = blank_codes[0] if blank_codes else None
-    return ordered_division_codes, defect_codes, blank_code
+    return ordered_division_codes, defects_per_division_codes, blank_code
 
 def generate_defect_values(defect_codes, blank_code):
     values = []
@@ -134,7 +145,7 @@ def clear_tables(start_date, end_date):
     conn.close()
     print("Tables cleared for the specified period.")
 
-def generate_data(start_date, end_date, division_codes, defect_codes, blank_code):
+def generate_data(start_date, end_date, division_codes, defects_per_division_codes, blank_code):
     conn = sqlite3.connect('statistics.sqlite')
     cursor = conn.cursor()
 
@@ -144,9 +155,9 @@ def generate_data(start_date, end_date, division_codes, defect_codes, blank_code
     while current_time <= end_date:
         timestamp = current_time.strftime('%Y-%m-%d %H:%M:%S')
         record_ejectors = [timestamp]
-        for division_code in division_codes:
+        for i, division_code in enumerate(division_codes):
             record_ejectors.append(division_code)
-            record_ejectors.extend(generate_defect_values(defect_codes, blank_code))
+            record_ejectors.extend(generate_defect_values(defects_per_division_codes[i], blank_code))
 
         # Data for throughput_per_division_short
         record_throughput = [
@@ -213,16 +224,67 @@ def main():
         )
     )
 
+    # Check connection and defect list
+    config = splintco_python.SessionConfig()
+    config.host = "127.0.0.1"
+    config.port = 50713
+    config.connection_timeout = 3000
+    config.auto_reconnect = True
+    config.request_attempts = 3
+
+    session = splintco_python.SplintSession(config)
+
+    success, err = session.connect()
+    if not success:
+        print(f"Failed to connect: {err}")
+        return
+    
+    print("Connected successfully.")
+
+    # Get defect list
+    request = splintco_python.GetDefectListRequest()
+    request.notification_level = 0
+    encoded_request = splintco_python.encode_get_defect_list_request(request)
+
+    response = None
+    # Send request and await bytes response
+    response_bytes, err = session.send(splintco_python.GET_DEFECT_LIST_COMMAND_ID, encoded_request)
+    if response_bytes is None:
+        print(f"Protocol or Connection Error: {err}")
+    else:
+        # Decode the response
+        response = splintco_python.decode_get_defect_list_response(response_bytes)
+
+    if response is not None:
+        # Handle Command Error
+        if getattr(response, "command_error", 0) != 0:
+            error_msg = splintco_python.get_get_defect_list_command_error_string(response.command_error)
+            print(f"Command Error: {error_msg}")
+        else:
+            # Success! Print JSON representation
+            print("JSON:", splintco_python.get_defect_list_response_to_json(response))
+
+        for defect in getattr(response, "list_of_defects", []):
+            if getattr(defect, 'defect') and getattr(defect, 'division'):
+                print("Defect: {} Division: {}".format(defect.defect, defect.division))
+
+    # Disconnect from the session after checking the connection and defect list
+    session.disconnect()
+
+    if response is None or getattr(response, "command_error", 0) != 0:
+        print("Could not retrieve valid defect list. Exiting.")
+        sys.exit(1)
+
     # Check connection and table existence
     if check_connection_and_table():
         try:
-            division_codes, defect_codes, blank_code = load_statistics_codes()
+            division_codes, defects_per_division_codes, blank_code = load_statistics_codes_and_defects(response)
         except (sqlite3.Error, ValueError) as error:
             print("String table error: {}".format(error))
             sys.exit(1)
 
         clear_tables(start_date, end_date)
-        generate_data(start_date, end_date, division_codes, defect_codes, blank_code)
+        generate_data(start_date, end_date, division_codes, defects_per_division_codes, blank_code)
         print("Data generation completed.")
 
 if __name__ == '__main__':

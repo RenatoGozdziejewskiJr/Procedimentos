@@ -99,6 +99,28 @@ Data generation completed.
 
 O script gera dados para três divisões e grava um registro por minuto nas tabelas de taxa de ejetores e throughput.
 
+## Geração do Executável (.exe)
+
+Para facilitar a execução do script em ambientes sem a necessidade de instalar as dependências, é possível compilar o script para um arquivo executável.
+
+### Instalação do PyInstaller
+
+Primeiro, instale a ferramenta `pyinstaller`:
+
+```bash
+pip install pyinstaller
+```
+
+### Criando o executável
+
+Para gerar o executável em um único arquivo, incluindo a biblioteca `.pyd` necessária, execute o seguinte comando no mesmo diretório do script:
+
+```bash
+pyinstaller --onefile --add-binary "splintco_python.cp311-win_amd64.pyd;." generateStats.py
+```
+
+O executável gerado (`generateStats.exe`) será salvo na subpasta `dist/`.
+
 ## Solução de Problemas
 
 ### Mensagem `Table not found.`

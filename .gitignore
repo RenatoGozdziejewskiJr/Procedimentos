@@ -1,0 +1,57 @@
+# ==========================================
+# C++ / CMake / Build Artifacts
+# ==========================================
+# Pastas de saída geradas pelo CMake e Make
+build/
+bin/
+lib/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+CMakeUserPresets.json
+
+# Objetos intermediários e binários compilados
+*.o
+*.a
+*.so
+*.dylib
+*.elf
+spi-test
+display_main
+
+# ==========================================
+# Python
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Ambientes virtuais
+.venv/
+venv/
+ENV/
+env/
+
+# Distribuição / Empacotamento
+*.egg-info/
+dist/
+eggs/
+
+# ==========================================
+# Ambientes e IDEs
+# ==========================================
+.vscode/
+*.code-workspace
+.idea/
+*.swp
+*~
+*.bak
+
+# ==========================================
+# Sistema Operacional / Logs
+# ==========================================
+.DS_Store
+Thumbs.db
+*.log

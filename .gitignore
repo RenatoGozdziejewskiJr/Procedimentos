@@ -55,3 +55,6 @@ eggs/
 .DS_Store
 Thumbs.db
 *.log
+
+# MkDocs generated site
+site/

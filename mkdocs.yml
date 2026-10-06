@@ -1,0 +1,9 @@
+site_name: Procedures and Notes
+docs_dir: docs
+site_dir: site
+exclude_docs: |
+  Buhler/scripts/build/**
+  Buhler/scripts/dist/**
+  Buhler/scripts/statistics.sqlite
+theme:
+  name: mkdocs

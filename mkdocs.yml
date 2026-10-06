@@ -1,6 +1,7 @@
 site_name: Procedures and Notes
 docs_dir: docs
 site_dir: site
+site_url: https://renatogozdziejewskijr.github.io/Procedimentos/
 exclude_docs: |
   Buhler/scripts/build/**
   Buhler/scripts/dist/**

@@ -7,4 +7,11 @@ exclude_docs: |
   Buhler/scripts/dist/**
   Buhler/scripts/statistics.sqlite
 theme:
-  name: mkdocs
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
